@@ -1,0 +1,26 @@
+# --- Sensitive / personal data ---
+# Keep real bank statements out of the repo entirely.
+data/
+*.csv
+!data/sample_statement.csv   # if you make a fake/sanitized sample, un-ignore it specifically
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# --- Virtual environment ---
+venv/
+.venv/
+
+# --- Editor / OS junk ---
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Streamlit (once you get there) ---
+.streamlit/
+
+# --- Environment variables / secrets, if you ever add any ---
+.env
