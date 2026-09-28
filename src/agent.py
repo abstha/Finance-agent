@@ -113,13 +113,14 @@ If a month argument is needed, it MUST be one of these (data only exists for the
         return []
 
 def generate_answer(question: str, results: list) -> str:
-    prompt = f"""Answer the user's question in one clear, concise response based on this data.
-List every relevant data point — do not summarize or drop any.
+    prompt = f"""Answer the user's question in a complete, natural-sounding sentence based on this data.
+Never respond with just a number by itself — always wrap it in a full sentence.
+Phrase spending amounts as positive dollar figures (e.g. "you spent $50", not "you spent -$50").
 
 Question: "{question}"
 Data: {results}
 
-Give a natural answer."""
+Answer:"""
 
     response = ollama.chat(model='phi3:mini', messages=[{'role': 'user', 'content': prompt}])
     return response["message"]["content"].strip()
@@ -138,7 +139,7 @@ if __name__ == "__main__":
         "Show me anything unusual in my transactions",
         "How much did I spend in July?",
         "Compare my food spending across months",
-        "How much did I spend at KFC?"
+        "How much did i spend in KFC?"
     ]
 
     for question in questions:
