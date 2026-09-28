@@ -1,15 +1,17 @@
 import json
 import ollama
+import re
 from loader import load_data
-from Categorizer import hybrid_categorize, refine_transfer_category  # match your actual filename
-from analytics import spend_by_category, monthly_spend
+from Categorizer import hybrid_categorize, refine_transfer_category  
+from analytics import spend_by_category, monthly_spend, filter_by_merchant
 from anomaly import detect_anomalies
 
 TOOLS = {
     "spend_by_category": "Total spending grouped by category. No arguments needed.",
     "monthly_spend": "Total spending grouped by month. No arguments needed.",
     "detect_anomalies": "Returns unusual/outlier transactions. No arguments needed.",
-    "filter_by_category_and_month": "Spending for a specific category and/or month. Args: category (optional), month (optional, format YYYY-MM)."
+    "filter_by_category_and_month": "Spending for a specific category and/or month. Args: category (optional), month (optional, format YYYY-MM).",
+    "filter_by_merchant": "Total spending at a specific merchant/business, searched by keyword in the transaction description. Args: keyword (required, e.g. 'KFC', 'Woolworths')."
 }
 
 def resolve_category(raw_category, valid_categories):
@@ -34,6 +36,11 @@ def execute_plan(plan: list, df, valid_categories):
 
         elif tool == "monthly_spend":
             results.append({"tool": tool, "args": args, "result": monthly_spend(df)})
+            
+        elif tool == "filter_by_merchant":
+            keyword = args.get("keyword")
+            if keyword:
+                results.append({"tool": tool, "args": args, "result": filter_by_merchant(df, keyword)})
 
         elif tool == "detect_anomalies":
             results.append({"tool": tool, "args": args, "result": detect_anomalies(df)})
@@ -62,9 +69,11 @@ def execute_plan(plan: list, df, valid_categories):
 
     return results
 
-def plan_query(question: str) -> list:
+def plan_query(question: str, df) -> list:
     VALID_CATEGORIES = ["Groceries", "Food and dining", "Transport", "Subscriptions",
                      "Rent", "Shopping", "Fees", "Income", "Transfer In", "Transfer Out", "Education"]
+
+    available_months = sorted(df["Date"].dt.to_period("M").astype(str).unique().tolist())
 
     prompt = f"""You are a finance assistant planning which tools to call to answer a question.
 
@@ -78,21 +87,24 @@ Reply with ONLY a JSON array of tool calls needed, in this exact format:
 
 Reply with ONLY the JSON array, nothing else.
 If a category argument is needed, it MUST be exactly one of: {VALID_CATEGORIES}
+If a month argument is needed, it MUST be one of these (data only exists for these months): {available_months}
 """
 
     response = ollama.chat(
         model='phi3:mini',
         messages=[{'role': 'user', 'content': prompt}],
-        # Stops generation once the model starts drifting into hallucinated
-        # continuations (echoing "User question:" back, inventing new prompts, etc.)
         options={'stop': ['\n\n', 'User question', 'User:']}
     )
     raw = response["message"]["content"].strip()
 
-    # Strip markdown code fences if present
     if raw.startswith("```"):
         raw = raw.strip("`")
         raw = raw.replace("json", "", 1).strip()
+
+    # Extract just the [...] portion, tolerating trailing/leading garbage
+    match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if match:
+        raw = match.group(0)
 
     try:
         return json.loads(raw)
@@ -125,12 +137,13 @@ if __name__ == "__main__":
         "What's my spending by category?",
         "Show me anything unusual in my transactions",
         "How much did I spend in July?",
-        "Compare my food spending across months"
+        "Compare my food spending across months",
+        "How much did I spend at KFC?"
     ]
 
     for question in questions:
         print(f"\n--- Question: {question} ---")
-        plan = plan_query(question)
+        plan = plan_query(question, df)
         print("Plan:", plan)
         results = execute_plan(plan, df, VALID_CATEGORIES)
         print("Results:", results)

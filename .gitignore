@@ -1,8 +1,7 @@
 # --- Sensitive / personal data ---
-# Keep real bank statements out of the repo entirely.
 data/
 *.csv
-!data/sample_statement.csv   # if you make a fake/sanitized sample, un-ignore it specifically
+*.xlsx
 
 # --- Python ---
 __pycache__/
