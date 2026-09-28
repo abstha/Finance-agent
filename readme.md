@@ -68,7 +68,7 @@ Python · pandas · Ollama (Phi-3-mini) · Streamlit
 ## Setup
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/abstha/Finance-agent.git
 cd finance-agent
 python -m venv venv
 venv\Scripts\activate        # Windows; use `source venv/bin/activate` on Mac/Linux
