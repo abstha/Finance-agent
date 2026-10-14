@@ -80,7 +80,7 @@ ollama pull phi3:mini
 streamlit run app.py
 ```
 
-Upload a bank statement CSV in the sidebar to get started. No real data is included in this repo — see `.gitignore`.
+Upload a bank statement CSV or PDF in the sidebar to get started. No real data is included in this repo — see `.gitignore`.
 
 ## Example queries
 
@@ -93,7 +93,7 @@ Upload a bank statement CSV in the sidebar to get started. No real data is inclu
 
 ## Engineering challenges and how they were handled
 
-While building this agent with **real** bank csv statements, several problems worth documenting surfaced which I feel are worth mentioning here.
+While building this agent with **real** bank csv and pdf statements, several problems worth documenting surfaced which I feel are worth mentioning here.
 
 - **LLM category drift** — without constraints, the categorizer would invent near-duplicate categories ("Food and Dining" vs "food and dining", or entirely new ones like "Overdraft Fees"), silently fragmenting the analytics. This was fixed by validating every LLM output against a fixed category list and falling back to "Uncategorized" on any mismatch.
 - **Small-model unreliability in structured output** — phi3:mini frequently wrapped JSON responses in markdown which occasionally produced malformed JSON (mismatched brackets). In early testing the model hallucinated continuations of the prompt template itself. This was addressed with fence-stripping, regex-based JSON extraction, an Ollama `stop` sequence to cut off generation before it drifts, and a separate fallback (empty plan) on unparseable output rather than crashing.
@@ -111,4 +111,3 @@ While building this agent with **real** bank csv statements, several problems wo
 
 - Broaden the tool set (e.g. spending trend by merchant, budget vs. actual comparisons).
 - Swap z-score anomaly detection for a more robust method (e.g. median absolute deviation), since a single extreme outlier currently inflates the standard deviation used to detect others.
-- PDF statement ingestion, to avoid the manual CSV export step entirely.
