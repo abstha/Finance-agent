@@ -16,26 +16,25 @@ VALID_CATEGORIES = ["Groceries", "Food and dining", "Transport", "Subscriptions"
 NON_SPEND = ["Transfer In", "Transfer Out", "Income"]
 
 st.set_page_config(page_title="Finance Agent", layout="wide")
-st.title("Personal Finance Agent")
+st.title("Jarvis from Temu")
 st.caption("Runs fully locally!!!")
 
 
-@st.cache_data(show_spinner="Categorizing transactions (LLM fallback can take a minute)...")
-def load_and_categorize(file_bytes: bytes) -> pd.DataFrame:
-    # Caching means the slow LLM categorization only runs once per uploaded file,
-    # not every time you click something in the UI.
-    df = load_data(io.BytesIO(file_bytes))
+# pass the filename into the cached function
+@st.cache_data(show_spinner="Reading and categorizing transactions (first run can take a few minutes)...")
+def load_and_categorize(file_bytes: bytes, filename: str) -> pd.DataFrame:
+    df = load_data(io.BytesIO(file_bytes), filename=filename)
     df["Category"] = df["Description"].apply(hybrid_categorize)
     df["Category"] = df.apply(refine_transfer_category, axis=1)
     return df
 
-
-uploaded = st.sidebar.file_uploader("Upload bank statement CSV", type="csv")
+# accept both formats
+uploaded = st.sidebar.file_uploader("Upload bank statement (CSV or PDF)", type=["csv", "pdf"])
 if uploaded is None:
-    st.info("Upload your statement CSV in the sidebar to get started.")
+    st.info("Upload your statement (CSV or PDF) in the sidebar to get started.")
     st.stop()
 
-df = load_and_categorize(uploaded.getvalue())
+df = load_and_categorize(uploaded.getvalue(), uploaded.name)
 
 tab_overview, tab_anomalies, tab_ask, tab_data = st.tabs(
     ["Overview", "Anomalies", "Ask the agent", "Transactions"]
@@ -43,7 +42,7 @@ tab_overview, tab_anomalies, tab_ask, tab_data = st.tabs(
 
 with tab_overview:
     exclude_big = st.checkbox(
-        "Hide very large one-off payments (e.g. tuition) so everyday spending is readable",
+        "Hide very large one-off payments",
         value=True,
     )
     spend = df[(df["Amount"] < 0) & (~df["Category"].isin(NON_SPEND))]

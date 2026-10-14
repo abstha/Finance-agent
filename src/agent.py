@@ -22,9 +22,6 @@ def resolve_category(raw_category, valid_categories):
     return None  # no match found
 
 def execute_plan(plan: list, df, valid_categories):
-    # results is now a LIST, not a dict — so repeated calls to the same
-    # tool (e.g. filter_by_category_and_month for 4 different months)
-    # each keep their own entry instead of overwriting each other.
     results = []
 
     for step in plan:

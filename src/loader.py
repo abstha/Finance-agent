@@ -1,4 +1,5 @@
 import pandas as pd
+from pdf_parser import parse_pdf
 
 CATEGORY_RULES = {
     "Groceries": ["woolworths", "aldi", "coles", "bazaar"],
@@ -21,15 +22,19 @@ def categorize(merchant: str) -> str:
             return category
     return "Uncategorized"
 
-def load_data(inp):
-    df = pd.read_csv(
-        inp,
-        sep=",",
-        header=None,
-        names=["Date", "Amount", "Description", "Balance"]
-    )
+
+def load_csv(inp):
+    df = pd.read_csv(inp, sep=",", header=None,
+                     names=["Date", "Amount", "Description", "Balance"])
     df["Date"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
     return df
+
+def load_data(inp, filename=None):
+    name = (filename or str(inp)).lower()
+    if name.endswith(".pdf"):
+        from pdf_parser import parse_pdf   # imported here so CSV users don't need pdfplumber
+        return parse_pdf(inp)
+    return load_csv(inp)
 
 def refine_transfer_category(row):
     if row["Category"] == "Transfer":

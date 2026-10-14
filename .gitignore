@@ -2,6 +2,7 @@
 data/
 *.csv
 *.xlsx
+*.pdf
 
 # --- Python ---
 __pycache__/
