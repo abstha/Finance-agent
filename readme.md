@@ -45,10 +45,10 @@ Bank statement CSV
          └───────────┬─────────────┘
                      │
                      ▼
-         ┌───────────────────────┐
-         │   app.py (Streamlit)   │  Dashboard: overview charts,
-         │                        │  anomalies, ask-a-question, raw data
-         └───────────────────────┘
+         ┌───────────────────────────┐
+         │   dashboard.py (Streamlit)   │  Dashboard: overview charts,
+         │                              │  anomalies, ask-a-question, raw data
+         └──────────────────────────┘
 ```
 
 All LLM calls run against **Phi-3-mini (3.8B)** via **Ollama**, fully local — no API keys, no cost per query, no transaction data ever sent to a third party.

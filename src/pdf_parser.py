@@ -1,27 +1,3 @@
-"""
-pdf_parser.py - turn a text-based bank statement PDF into the same DataFrame
-that load_data() produces from a CSV: Date, Amount, Description, Balance.
-
-Layout this is written for (CommBank-style):
-
-    01 Mar 2026 OPENING BALANCE                              $71.32 CR
-    01 Mar Debit Excess Interest                  0.01       $71.31 CR
-    03 Mar TRANSPORTFORNSW TAP SYDNEY AUS
-           Card xx1835
-           Value Date: 27/02/2026                10.82       $60.49 CR
-
-How it works:
-  1. A line that STARTS with a date ("03 Mar") opens a new transaction block.
-  2. Following lines without a date are part of the same block (wrapped
-     description, "Card xx1835", "Value Date: ...").
-  3. The first line in the block holding TWO money values gives us
-     (amount, balance), and closes the block. Because the block is closed,
-     the private header/footer text around the table is never swallowed.
-  4. The SIGN of each amount comes from how the running balance moved, not from
-     which column (Debit/Credit) the number sat in.
-  5. Dates have no year, so the year is taken from the OPENING BALANCE line and
-     rolled forward when the month wraps (Dec -> Jan).
-"""
 import re
 import warnings
 from datetime import datetime
@@ -32,7 +8,6 @@ import pdfplumber
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 
-# "03 Mar", "03 Mar 2026", "03 March" at the START of a line, then the rest.
 TEXT_DATE_RE = re.compile(
     r"^\s*(?P<day>\d{1,2})\s*"
     r"(?P<mon>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
@@ -40,21 +15,15 @@ TEXT_DATE_RE = re.compile(
     r"(?:\s*(?P<year>20\d{2})(?!\d))?\s*(?P<rest>.*)$",
     re.IGNORECASE,
 )
-# "03/03/2026" or "03/03/26" at the start of a line (other banks)
+
 SLASH_DATE_RE = re.compile(
     r"^\s*(?P<day>\d{1,2})/(?P<mon>\d{1,2})/(?P<year>\d{2,4})\s+(?P<rest>.*)$"
 )
 
-# 1,234.56   $1,234.56   (45.00)   -45.00   45.00 CR   $10.63 DR
 MONEY_RE = re.compile(r"\(?-?\$?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s?(?:CR|DR)\b)?", re.IGNORECASE)
 
-# matched against the line with ALL spaces removed, so "ClosingBalance" and "Closing Balance" both hit
 STOP_HINTS = ("closingbalance", "balancebroughtforward", "balancecarriedforward")
 
-# pdfplumber merges two words when the gap between them is < x_tolerance points. Many bank PDFs
-# have no real space characters (only small gaps), so the default (3) glues words together
-# ("01Mar DebitExcessInterest"). Try tighter settings first; the parser also tolerates
-# merged text, but descriptions read far better (and categorize better) with spaces restored.
 X_TOLERANCES = (1, 1.5, 2, 3)
 PAGE_RE = re.compile(r"\bpage\s*\d+\s*of\s*\d+\b", re.IGNORECASE)
 
@@ -86,17 +55,16 @@ def _parse_lines(lines):
     years = re.findall(r"\b(20\d{2})\b", all_text)
     fallback_year = int(max(set(years), key=years.count)) if years else datetime.now().year
 
-    cur_year = None        # set from the OPENING BALANCE line when possible
-    last_month = None      # to detect Dec -> Jan rollover
+    cur_year = None        
+    last_month = None      
     opening_balance = None
     closing_balances = []  # used for a final integrity check
     records = []
-    current = None         # the open transaction block (None = nothing open)
+    current = None         
 
     for line in lines:
         squash = line.lower().replace(" ", "")
 
-        # --- opening balance: gives us the starting balance AND the year ---
         if "openingbalance" in squash:
             money = MONEY_RE.findall(line)
             if money and opening_balance is None:
@@ -107,7 +75,6 @@ def _parse_lines(lines):
             current = None
             continue
 
-        # --- end of the table / page furniture: close any open block ---
         if any(h in squash for h in STOP_HINTS) or PAGE_RE.search(line):
             if "closingbalance" in squash:
                 money = MONEY_RE.findall(line)
@@ -125,22 +92,20 @@ def _parse_lines(lines):
                 cur_year = explicit_year
             elif last_month is not None and month < last_month:
                 if last_month >= 11 and month <= 2:
-                    cur_year += 1                  # genuine year wrap: Nov/Dec -> Jan/Feb
+                    cur_year += 1                 
                 else:
-                    # Dates go backwards mid-year: this is a footnote / summary-table line
-                    # that merely starts with a date-like token, not a transaction.
                     current = None
                     continue
             last_month = month
             try:
                 when = datetime(cur_year, month, day)
             except ValueError:
-                current = None                     # not a real date (e.g. "31 Feb")
+                current = None                     
                 continue
             current = {"Date": when, "parts": [], "Amount_abs": None, "Balance": None}
         else:
             if current is None:
-                continue                           # header / footer / private details
+                continue                          
             text = line
 
         money = MONEY_RE.findall(text)
@@ -153,7 +118,7 @@ def _parse_lines(lines):
         if text:
             current["parts"].append(text)
 
-        if current["Amount_abs"] is not None:      # block complete -> close it
+        if current["Amount_abs"] is not None:     
             records.append({
                 "Date": current["Date"],
                 "Amount_abs": current["Amount_abs"],
@@ -167,7 +132,6 @@ def _parse_lines(lines):
 
     df = pd.DataFrame(records)
 
-    # --- sign each amount from the balance movement, and sanity-check it ---
     prev = opening_balance
     signed, bad_rows = [], []
     for i, row in df.iterrows():
@@ -176,7 +140,7 @@ def _parse_lines(lines):
         else:
             delta = round(row["Balance"] - prev, 2)
             if abs(abs(delta) - row["Amount_abs"]) > 0.01:
-                bad_rows.append(i)                 # a transaction was probably missed
+                bad_rows.append(i)                 
             sign = 1 if delta > 0 else -1
         signed.append(sign * row["Amount_abs"])
         prev = row["Balance"]

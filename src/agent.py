@@ -46,8 +46,6 @@ def execute_plan(plan: list, df, valid_categories):
             raw_category = args.get("category")
             month = args.get("month")
 
-            # Skip calls that give us nothing to actually filter on —
-            # prevents the "7 empty filter calls" mess from before.
             if not raw_category and not month:
                 print(f"Skipping filter_by_category_and_month — no category or month given")
                 continue
@@ -98,7 +96,6 @@ If a month argument is needed, it MUST be one of these (data only exists for the
         raw = raw.strip("`")
         raw = raw.replace("json", "", 1).strip()
 
-    # Extract just the [...] portion, tolerating trailing/leading garbage
     match = re.search(r'\[.*\]', raw, re.DOTALL)
     if match:
         raw = match.group(0)

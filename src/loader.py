@@ -32,7 +32,7 @@ def load_csv(inp):
 def load_data(inp, filename=None):
     name = (filename or str(inp)).lower()
     if name.endswith(".pdf"):
-        from pdf_parser import parse_pdf   # imported here so CSV users don't need pdfplumber
+        from pdf_parser import parse_pdf  
         return parse_pdf(inp)
     return load_csv(inp)
 

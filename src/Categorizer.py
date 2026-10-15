@@ -31,7 +31,7 @@ def refine_transfer_category(row):
 if __name__ == "__main__":
     df = load_data('./data/state.csv')
     df["Category"] = df["Description"].apply(hybrid_categorize)
-    df["Category"] = df.apply(refine_transfer_category, axis=1)   # ← add this line
+    df["Category"] = df.apply(refine_transfer_category, axis=1)  
     print("spend by category \n")
     print(sp(df))
     print("spend by month \n")
